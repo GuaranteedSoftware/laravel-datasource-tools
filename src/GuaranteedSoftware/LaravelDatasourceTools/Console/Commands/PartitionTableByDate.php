@@ -2,6 +2,7 @@
 
 namespace GuaranteedSoftware\LaravelDatasoureTools\Console\Commands;
 
+use GuaranteedSoftware\LaravelDatasourceTools\Constants;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -54,24 +55,8 @@ use InvalidArgumentException;
  *  PARTITION p20231001 VALUES LESS THAN (739160) ENGINE = InnoDB,
  *  PARTITION pMAXVALUE VALUES LESS THAN MAXVALUE ENGINE = InnoDB)
  */
-class PartitionTable extends Command
+class PartitionTableByDate extends Command
 {
-    /**
-     * MySql date format, the native representation of the MySql date type
-     * that is used for created_date column comparison when creating / deleting partitions.
-     *
-     * @var string
-     */
-    public const MYSQL_DATE_FORMAT = 'Y-m-d';
-
-    /**
-     * Having hyphens (-) in partition names is against the SQL standard, perhaps it can be used if quoted correctly,
-     * but not recommended. So this format is used. The partition name can not start with a digit so the chosen
-     * format is `p<Ymd>`. The date is included in the partition name, so we can later delete old partitions.
-     * @var string
-     */
-    public const PARTITION_NAME_DATE_FORMAT = 'Ymd';
-
     /**
      * The name and signature of the console command.
      *
@@ -80,8 +65,8 @@ class PartitionTable extends Command
     protected $signature = 'table:partition-by-date
                             {tableName : The name of the table to partition}
                             {partitionColumnName : The name of the column to partition against}
-                            {startDate : The starting partition date in the format of ' . self::MYSQL_DATE_FORMAT . '}
-                            {endDate : The concluding partition date in the format of ' . self::MYSQL_DATE_FORMAT . '}';
+                            {startDate : The starting partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . '}
+                            {endDate : The concluding partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . '}';
 
     /**
      * The console command description.
@@ -146,8 +131,8 @@ class PartitionTable extends Command
         $partitionStatements = "";
         foreach ($period as $date) {
             $partitionStatements .=
-                "partition p{$date->format(self::PARTITION_NAME_DATE_FORMAT)} VALUES LESS THAN
-                 (to_days('{$date->add('days', 1)->format(self::MYSQL_DATE_FORMAT)}')),\n";
+                "partition p{$date->format(Constants::PARTITION_NAME_DATE_FORMAT)} VALUES LESS THAN
+                 (to_days('{$date->add('days', 1)->format(Constants::MYSQL_DATE_FORMAT)}')),\n";
         }
 
         $statement =
@@ -170,33 +155,11 @@ class PartitionTable extends Command
     }
 
     /**
-     * Check if the passed dates (as strings) satisfy the required date format and
-     * if the $startDate is less or equal to the $endDate
-     *
-     * @param string $startDate start of the date interval
-     * @param string $endDate   end of the date interval
-     *
-     * @return bool             true if date range is valid, otherwise false
-     */
-    private function isValidDateRange(string $startDate, string $endDate): bool
-    {
-        foreach ([$startDate, $endDate] as $date) {
-            if (
-                Carbon::createFromFormat(self::MYSQL_DATE_FORMAT, $date)
-                    ->format(self::MYSQL_DATE_FORMAT) !== $date
-            ) {
-                return false;
-            }
-        }
-        return $startDate <= $endDate;
-    }
-
-    /**
-     *  Checks all input and ensures that they are valid in order to partition the table
+     *  Checks all arguments and ensures that they are valid in order to partition the table
      *
      * @return void
-     * @throws InvalidArgumentException if any argument past to this command is invalid.
-     *                                  this includes tables that are not in the expected
+     * @throws InvalidArgumentException if any argument passed to this command is invalid.
+     *                                  This includes tables that are not in the expected
      *                                  state or that do not exist.
      */
     private function validateArguments(): void
@@ -206,7 +169,7 @@ class PartitionTable extends Command
         if (!$this->isValidDateRange($this->startDate, $this->endDate)) {
             $this->error(
                 $error .= "Invalid input date(s) !!! startDate: [$this->startDate], endDate: [$this->endDate]\n"
-                    . "expected format: [" . self::MYSQL_DATE_FORMAT . "] where the startDate is before"
+                    . "expected format: [" . Constants::MYSQL_DATE_FORMAT . "] where the startDate is before"
                     . " the endDate.\n"
             );
         }
@@ -262,6 +225,28 @@ class PartitionTable extends Command
         if ($error) {
             throw new InvalidArgumentException($error);
         }
+    }
+
+    /**
+     * Check if the passed dates (as strings) satisfy the required date format and
+     * if the $startDate is less or equal to the $endDate
+     *
+     * @param string $startDate start of the date interval
+     * @param string $endDate   end of the date interval
+     *
+     * @return bool             true if date range is valid, otherwise false
+     */
+    private function isValidDateRange(string $startDate, string $endDate): bool
+    {
+        foreach ([$startDate, $endDate] as $date) {
+            if (
+                Carbon::createFromFormat(Constants::MYSQL_DATE_FORMAT, $date)
+                    ->format(Constants::MYSQL_DATE_FORMAT) !== $date
+            ) {
+                return false;
+            }
+        }
+        return $startDate <= $endDate;
     }
 
     /**
