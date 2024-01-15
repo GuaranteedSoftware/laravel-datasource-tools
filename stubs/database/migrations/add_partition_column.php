@@ -6,8 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Add created_date column to the wms_requests table.
- * It will be used for partitioning.
+ * Add the column to the table that will be used for partitioning.
  */
 return new class extends Migration
 {

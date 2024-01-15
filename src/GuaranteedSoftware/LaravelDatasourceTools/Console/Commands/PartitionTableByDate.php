@@ -2,10 +2,12 @@
 
 namespace GuaranteedSoftware\LaravelDatasoureTools\Console\Commands;
 
+use GuaranteedSoftware\Helpers\DbHelper;
 use GuaranteedSoftware\LaravelDatasourceTools\Constants;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
@@ -65,8 +67,8 @@ class PartitionTableByDate extends Command
     protected $signature = 'table:partition-by-date
                             {tableName : The name of the table to partition}
                             {partitionColumnName : The name of the column to partition against}
-                            {startDate : The starting partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . '}
-                            {endDate : The concluding partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . '}';
+                            {startDate : The starting partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . ', typically, in the past.}
+                            {endDate : The concluding partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . ', typically, in the future.}';
 
     /**
      * The console command description.
@@ -91,6 +93,7 @@ class PartitionTableByDate extends Command
 
     /**
      * The starting partition date in the format of {@see self::MYSQL_DATE_FORMAT}
+     * Typically, this date should be in the past
      *
      * @var string
      */
@@ -98,6 +101,7 @@ class PartitionTableByDate extends Command
 
     /**
      * The concluding partition date in the format of {@see self::MYSQL_DATE_FORMAT}
+     * Typically, this date should be in the future
      *
      * @var string
      */
@@ -123,30 +127,12 @@ class PartitionTableByDate extends Command
         }
 
         if (!Schema::hasColumn($this->tableName, $this->partitionColumnName)) {
-            $this->doAddPartitionColumnMigration();
+            $this->makeAddPartitionColumnMigrationFile();
         }
 
-        $period = CarbonPeriod::create($this->startDate, $this->endDate);
+        $this->makeCreatePartitionsMigrationFile();
 
-        $partitionStatements = "";
-        foreach ($period as $date) {
-            $partitionStatements .=
-                "partition p{$date->format(Constants::PARTITION_NAME_DATE_FORMAT)} VALUES LESS THAN
-                 (to_days('{$date->add('days', 1)->format(Constants::MYSQL_DATE_FORMAT)}')),\n";
-        }
-
-        $statement =
-            "ALTER TABLE $this->tableName
-            PARTITION by range (to_days($this->partitionColumnName))
-            (
-              $partitionStatements
-              partition pMAXVALUE VALUES LESS THAN MAXVALUE
-            );";
-
-        $this->comment('EXECUTING STATEMENT:');
-        $this->info($statement);
-
-        DB::statement($statement);
+        Artisan::call('migrate');
 
         $this->comment('RESULTED TABLE STRUCTURE:');
         $this->info(DB::select(DB::raw("SHOW CREATE TABLE $this->tableName ;"))[0]->{'Create Table'});
@@ -176,6 +162,10 @@ class PartitionTableByDate extends Command
 
         if (!Schema::hasTable($this->tableName)) {
             $this->error($error .= "Invalid table name entry. `$this->tableName` was not found.\n");
+        }
+
+        if (DbHelper::discoversTableIsAlreadyPartitioned($this->tableName)) {
+            $this->error($error .= "Table `$this->tableName` has already been partitioned.\n");
         }
 
         if (!$this->partitionColumnName) {
@@ -254,7 +244,73 @@ class PartitionTableByDate extends Command
      *
      * @return void
      */
-    private function doAddPartitionColumnMigration() {
+    private function makeAddPartitionColumnMigrationFile(): void
+    {
+        $this->makeMigrationFile(
+            'add_partition_column',
+            [
+                '{{tableName}}' => $this->tableName,
+                '{{partitionColumnName}}' => $this->partitionColumnName,
+            ]
+        );
+    }
 
+    /**
+     * Adds the date-delimited partitions to $this->{@see PartitionTableByDate::$tableName}
+     * @return void
+     */
+    private function makeCreatePartitionsMigrationFile(): void
+    {
+        $period = CarbonPeriod::create($this->startDate, $this->endDate);
+
+        $partitionStatements = "";
+        foreach ($period as $date) {
+            $partitionStatements .=
+                "partition p{$date->format(Constants::PARTITION_NAME_DATE_FORMAT)} VALUES LESS THAN
+                 (to_days('{$date->add('days', 1)->format(Constants::MYSQL_DATE_FORMAT)}')),\n";
+        }
+
+        $statement =
+            "ALTER TABLE $this->tableName
+            PARTITION by range (to_days($this->partitionColumnName))
+            (
+              $partitionStatements
+              partition pMAXVALUE VALUES LESS THAN MAXVALUE
+            );";
+
+        $this->makeMigrationFile(
+            'create_partitions',
+            [
+                '{{tableName}}' => $this->tableName,
+                '{{statement}}' => $statement
+            ]
+        );
+    }
+
+    /**
+     * Creates a migration file and stores it in the Laravel `database/migrations/` folder
+     *
+     * @param string $stubFileBaseName the base name, (i.e. name without the extension), of the stub file
+     *                                 located in this library's `stubs/database/migrations` folder
+     * @param array $textReplacements an associative array of text replacements where the keys are the
+     *                                text to be replaced in the stub files with the corresponding values
+     *                                in the array.  By convention, the keys follow the format
+     *                                `{{variableName}}`, but this is not a requirement.
+     *
+     * @return void
+     */
+    private function makeMigrationFile(string $stubFileBaseName, array $textReplacements): void
+    {
+        $stubFilePath = __DIR__ . "/../../../../../stubs/database/migrations/$stubFileBaseName.php";
+        $migrationFileContent = file_get_contents($stubFilePath);
+
+        foreach($textReplacements as $placeholder => $textReplacement) {
+            $migrationFileContent = str_replace($placeholder, $textReplacement, $migrationFileContent);
+        }
+
+        $timestamp = date('Y_m_d_His');
+        $migrationFilePath = base_path('database/migrations') . "/{$timestamp}_{$stubFileBaseName}_to_$this->tableName.php";
+
+        file_put_contents($migrationFilePath, $migrationFileContent);
     }
 }

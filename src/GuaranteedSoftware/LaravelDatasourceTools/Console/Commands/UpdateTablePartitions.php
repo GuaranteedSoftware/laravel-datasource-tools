@@ -2,6 +2,7 @@
 
 namespace GuaranteedSoftware\LaravelDatasoureTools\Console\Commands;
 
+use GuaranteedSoftware\Helpers\DbHelper;
 use GuaranteedSoftware\LaravelDatasourceTools\Constants;
 use Illuminate\Console\Command;
 use Carbon\Carbon;
@@ -241,9 +242,7 @@ class UpdateTablePartitions extends Command
             )
         );
 
-        $tableStatus = DB::select(DB::raw("SHOW TABLE STATUS LIKE '{$this->tableName}';"));
-
-        return str_contains((string)$tableStatus[0]?->Create_options, 'partitioned') && $pMaxValuePartition;
+        return DbHelper::discoversTableIsAlreadyPartitioned($this->tableName) && $pMaxValuePartition;
     }
 
     /**
