@@ -1,6 +1,6 @@
 <?php
 
-namespace GuaranteedSoftware\LaravelDatasourceTools;
+namespace GuaranteedSoftware\LaravelDatasourceTools\Contracts;
 
 interface Constants
 {

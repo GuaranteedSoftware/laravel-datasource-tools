@@ -1,9 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * Migration to initially partition a table with partitions tagged by date.
@@ -11,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
  * All data older than the first tag date is put in the first, and "oldest" historic partition.
  * All other data will be placed in their matching historic partitions.
  * Additionally, inactive partitions may be created for future dates if the
- * {@see \GuaranteedSoftware\LaravelDatasoureTools\Console\Commands\PartitionTableByDate::$endDate} is
+ * {@see \Console\Commands\PartitionTableByDate::$endDate} is
  * in the future.  These partitions become active historic partitions when their tag date arrives.
  * Finally, a fallback `pMAXVALUE` partition is created. In the event that the current date exceeds
  * any created partition, the data will be stored in the otherwise perennially inactive `pMAXVALUE` partition.

@@ -1,6 +1,6 @@
 <?php
 
-namespace GuaranteedSoftware\Helpers;
+namespace GuaranteedSoftware\LaravelDatasourceTools\Helpers;
 
 use Illuminate\Support\Facades\DB;
 

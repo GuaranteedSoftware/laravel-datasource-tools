@@ -6,9 +6,10 @@ Tools for extending datasource functionality in Laravel
 1. Install the library with `composer`
 > composer require guaranteed/laravel-datasource-tools
 
-2. Register the commands in your Laravel application.  In a default installation, 
-   this will be located in the `App/Console/Kernel::command` method.  Add the following
-   line of code to the method:
-```php
-$this->load(base_path('vendor/guaranteed/laravel-datasource-tools/src/GuaranteedSoftware/LaravelDatasourceTools/Console/Commands'));
-```
+2. Datasource Tools utilizes Laravel's auto-discovery feature to automatically register 
+   the commands in your Laravel application.
+
+
+3. Running each command will automatically install and run migration files stored in the
+   `database/migrations` folder.  This is done to allow you to use rollbacks within the
+   standard Laravel workflow.

@@ -12,6 +12,13 @@
             "GuaranteedSoftware\\LaravelDatasourceTools\\": "src/"
         }
     },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "GuaranteedSoftware\\LaravelDatasourceTools\\Providers\\DatasourceToolsServiceProvider"
+            ]
+        }
+    },
     "authors": [
         {
             "name": "Guaranteed Software",
