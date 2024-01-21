@@ -1,5 +1,5 @@
 {
-    "name": "guaranteed/laravel-datasource-tools",
+    "name": "guaranteed.software/laravel-datasource-tools",
     "description": "Tools for extending datasource functionality in Laravel",
     "type": "library",
     "require": {
