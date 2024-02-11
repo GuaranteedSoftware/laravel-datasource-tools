@@ -145,7 +145,7 @@ class UpdateTablePartitions extends Command
         /* TODO: Add checks and recoveries for when all expected partitions do not already exists.
          *     The above logic is not complete, failing to handle changing conditions.
          *     For example, if the `historicalPartitionCount` increased from 7 to 14, many historical
-         *     partitions will not already exist, so we get one very large lqst partition. Many other
+         *     partitions will not already exist, so we get one very large last partition. Many other
          *     scenarios exist, all resulting in mega-size partitions until it is eventually deleted.
          */
 
@@ -268,7 +268,7 @@ class UpdateTablePartitions extends Command
                         OR
                         (
                             PARTITION_NAME != 'pMAXVALUE' 
-                            AND PARTITION_NAME NOT REGEXP '^p.*[0-9]{6}$'
+                            AND PARTITION_NAME NOT REGEXP '^p[0-9]{8}$'
                         )
                     );
                 "

@@ -6,18 +6,20 @@ use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use GuaranteedSoftware\LaravelDatasourceTools\Contracts\Constants;
 use GuaranteedSoftware\LaravelDatasourceTools\Helpers\DbHelper;
+use GuaranteedSoftware\LaravelDatasourceTools\Providers\DatasourceToolsServiceProvider;
 use Illuminate\Console\Command;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 /**
- * A command to split a table into partitions
+ * A command to split a table into partitions by dates across a range of dates
  *
  * Example usage:
  *
- * php artisan table:partition-by-date wms_requests created_at_index 2023-09-25 2023-10-01
+ * php artisan table:partition-by-date wms_requests 2023-09-25 2023-10-01 --created_at_index
  *
  * EXECUTING STATEMENT:
  * ALTER TABLE wms_requests
@@ -43,9 +45,9 @@ use InvalidArgumentException;
  *   `response_code` int NOT NULL,
  *   `response_body` json DEFAULT NULL,
  *   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
- *   `created_date` date NOT NULL DEFAULT (curdate()),
+ *   `created_at_indexed` date NOT NULL DEFAULT (curdate()),
  *   PRIMARY KEY (`id`,`created_date`),
- *   KEY `wms_requests_created_date_index` (`created_date`)
+ *   KEY `wms_requests_created_at_indexed_index` (`created_at_indexed`)
  * ) ENGINE=InnoDB AUTO_INCREMENT=93327 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
  * /*!50100 PARTITION BY RANGE (to_days(`created_date`))
  * (PARTITION p20230925 VALUES LESS THAN (739154) ENGINE = InnoDB,
@@ -57,7 +59,7 @@ use InvalidArgumentException;
  *  PARTITION p20231001 VALUES LESS THAN (739160) ENGINE = InnoDB,
  *  PARTITION pMAXVALUE VALUES LESS THAN MAXVALUE ENGINE = InnoDB)
  */
-class PartitionTableByDate extends Command
+class PartitionTableByDateRange extends Command
 {
     /**
      * The name and signature of the console command.
@@ -66,9 +68,11 @@ class PartitionTableByDate extends Command
      */
     protected $signature = 'table:partition-by-date
                             {tableName : The name of the table to partition}
-                            {partitionColumnName : The name of the column to partition against}
                             {startDate : The starting partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . ', typically, in the past.}
-                            {endDate : The concluding partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . ', typically, in the future.}';
+                            {endDate : The concluding partition date in the format of ' . Constants::MYSQL_DATE_FORMAT . ', typically, in the future.}
+                            {--partitionColumnName=created_at_indexed : The name of the column to partition against}
+                            {--blueprint= : A special option used internally when this command is invoked programmatically via migrations.  It should not be used via the CLI.}
+                            {--databaseManagerStatements=  : A special option used internally when this command is invoked programmatically via migrations.  It should not be used via the CLI.}';
 
     /**
      * The console command description.
@@ -92,7 +96,7 @@ class PartitionTableByDate extends Command
     private string $partitionColumnName = '';
 
     /**
-     * The starting partition date in the format of {@see self::MYSQL_DATE_FORMAT}
+     * The starting partition date in the format of {@see Constants::MYSQL_DATE_FORMAT}
      * Typically, this date should be in the past
      *
      * @var string
@@ -100,12 +104,31 @@ class PartitionTableByDate extends Command
     private string $startDate = '';
 
     /**
-     * The concluding partition date in the format of {@see self::MYSQL_DATE_FORMAT}
+     * The concluding partition date in the format of {@see Constants::MYSQL_DATE_FORMAT}
      * Typically, this date should be in the future
      *
      * @var string
      */
     private string $endDate = '';
+
+    /**
+     * The table blueprint used for manipulating schemas in the migration context.  If this value has been
+     * set, then this command will operate in "blueprint" mode, performing actions against the blueprint instead
+     * of generating and running migration files.
+     *
+     * @var ?Blueprint
+     */
+    private ?Blueprint $tableBlueprint;
+
+    /**
+     * A stack of statements to be executed against the table, used in the migration context. If a blueprint has been
+     * set, then this command will operate in "blueprint" mode, will add statements to this queue instead
+     * of generating and running migration files.  These statements are expected to be run by the caller after command
+     * completion.
+     *
+     * @var array
+     */
+    private array $databaseManagerStatements = [];
 
     /**
      * Execute the console command to split a table into partitions
@@ -115,9 +138,11 @@ class PartitionTableByDate extends Command
     public function handle(): int
     {
         $this->tableName = $this->argument('tableName');
-        $this->partitionColumnName = $this->argument('partitionColumnName');
         $this->startDate = $this->argument('startDate');
         $this->endDate = $this->argument('endDate');
+        $this->partitionColumnName = $this->option('partitionColumnName');
+        $this->tableBlueprint = $this->option('blueprint');
+        $this->databaseManagerStatements = $this->option('$databaseManagerStatements');
 
         try {
             $this->validateArguments();
@@ -127,15 +152,27 @@ class PartitionTableByDate extends Command
         }
 
         if (!Schema::hasColumn($this->tableName, $this->partitionColumnName)) {
-            $this->makeAddPartitionColumnMigrationFile();
+            if ($this->tableBlueprint) {
+                $this->addPartitionColumnToBlueprint();
+
+                if (Schema::hasColumn($this->tableName, 'created_at')) {
+                    $this->databaseManagerStatements[] = "UPDATE $this->tableName SET $this->partitionColumnName = date(created_at);";
+                }
+            } else {
+                $this->makeAddPartitionColumnMigrationFile();
+            }
         }
 
-        $this->makeCreatePartitionsMigrationFile();
+        if ($this->tableBlueprint) {
+            $this->databaseManagerStatements[] = $this->getPartitionStatement();
+        } else {
+            $this->makeCreatePartitionsMigrationFile();
 
-        Artisan::call('migrate');
+            Artisan::call('migrate');
 
-        $this->comment('RESULTED TABLE STRUCTURE:');
-        $this->info(DB::select(DB::raw("SHOW CREATE TABLE $this->tableName ;"))[0]->{'Create Table'});
+            $this->comment('RESULTED TABLE STRUCTURE:');
+            $this->info(DB::select(DB::raw("SHOW CREATE TABLE $this->tableName ;"))[0]->{'Create Table'});
+        }
 
         return self::SUCCESS;
     }
@@ -240,6 +277,47 @@ class PartitionTableByDate extends Command
     }
 
     /**
+     * Add the schema definition to the table blueprint.  This is used when the macro `Blueprint::partitionByDateRange`
+     * is invoked.
+     *
+     * @return void
+     *
+     * @see DatasourceToolsServiceProvider::boot()
+     * @see file: laravel-datasource-tools/stubs/database/migrations/add_partition_column.php - must be kept synced to this
+     */
+    private function addPartitionColumnToBlueprint(): void
+    {
+        $this->tableBlueprint->date($this->partitionColumnName)->default(DB::raw('(CURRENT_DATE)'))->index();
+        $this->tableBlueprint->unique(['id']);
+        $this->tableBlueprint->dropPrimary(['id']);
+        $this->tableBlueprint->primary(['id', $this->partitionColumnName]);
+    }
+
+    /**
+     * Creates and returns the partition statement for this table
+     *
+     * @return string a single `ALTER TABLE` statement that makes the partitions
+     */
+    private function getPartitionStatement(): string {
+        $period = CarbonPeriod::create($this->startDate, $this->endDate);
+
+        $partitionStatements = "";
+        foreach ($period as $date) {
+            $partitionStatements .=
+                "partition p{$date->format(Constants::PARTITION_NAME_DATE_FORMAT)} VALUES LESS THAN
+                 (to_days('{$date->add('days', 1)->format(Constants::MYSQL_DATE_FORMAT)}')),\n";
+        }
+
+        return
+            "ALTER TABLE $this->tableName
+            PARTITION by range (to_days($this->partitionColumnName))
+            (
+              $partitionStatements
+              partition pMAXVALUE VALUES LESS THAN MAXVALUE
+            );";
+    }
+
+    /**
      * Adds the {@see self::$partitionColumnName} to the table {@see self::$tableName
      *
      * @return void
@@ -256,33 +334,17 @@ class PartitionTableByDate extends Command
     }
 
     /**
-     * Adds the date-delimited partitions to $this->{@see PartitionTableByDate::$tableName}
+     * Adds the date-delimited partitions to $this->{@see PartitionTableByDateRange::$tableName}
      * @return void
      */
     private function makeCreatePartitionsMigrationFile(): void
     {
-        $period = CarbonPeriod::create($this->startDate, $this->endDate);
-
-        $partitionStatements = "";
-        foreach ($period as $date) {
-            $partitionStatements .=
-                "partition p{$date->format(Constants::PARTITION_NAME_DATE_FORMAT)} VALUES LESS THAN
-                 (to_days('{$date->add('days', 1)->format(Constants::MYSQL_DATE_FORMAT)}')),\n";
-        }
-
-        $statement =
-            "ALTER TABLE $this->tableName
-            PARTITION by range (to_days($this->partitionColumnName))
-            (
-              $partitionStatements
-              partition pMAXVALUE VALUES LESS THAN MAXVALUE
-            );";
 
         $this->makeMigrationFile(
             'create_partitions',
             [
                 '{{tableName}}' => $this->tableName,
-                '{{statement}}' => $statement
+                '{{statement}}' => $this->getPartitionStatement(),
             ]
         );
     }
@@ -309,7 +371,7 @@ class PartitionTableByDate extends Command
         }
 
         $timestamp = date('Y_m_d_His');
-        $migrationFilePath = base_path('database/migrations') . "/{$timestamp}_{$stubFileBaseName}_to_$this->tableName.php";
+        $migrationFilePath = database_path('migrations')  . "/{$timestamp}_{$stubFileBaseName}_to_$this->tableName.php";
 
         file_put_contents($migrationFilePath, $migrationFileContent);
     }

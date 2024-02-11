@@ -17,6 +17,7 @@ return new class extends Migration
      */
     public function up()
     {
+        /* @see \GuaranteedSoftware\LaravelDatasourceTools\Console\Commands\PartitionTableByDateRange::addPartitionColumnToBlueprint() */
         Schema::table('{{tableName}}', function (Blueprint $table) {
             $table->date('{{partitionColumnName}}')->default(DB::raw('(CURRENT_DATE)'))->index();
             $table->unique(['id']);
@@ -25,7 +26,7 @@ return new class extends Migration
         });
 
         if (Schema::hasColumn('{{tableName}}', 'created_at')) {
-            DB::statement(DB::raw("UPDATE {{tableName}} SET {{partitionColumnName}} = date(created_at);"));
+            DB::statement("UPDATE {{tableName}} SET {{partitionColumnName}} = date(created_at);");
         }
     }
 
