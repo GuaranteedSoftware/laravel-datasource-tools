@@ -17,7 +17,7 @@ return new class extends Migration
      */
     public function up()
     {
-        /* @see \GuaranteedSoftware\LaravelDatasourceTools\Console\Commands\PartitionTableByDateRange::addPartitionColumnToBlueprint() */
+        /* @see \GuaranteedSoftware\Laravel\\DatasourceTools\Console\Commands\PartitionTableByDateRange::addPartitionColumnToBlueprint() */
         Schema::table('{{tableName}}', function (Blueprint $table) {
             $table->date('{{partitionColumnName}}')->default(DB::raw('(CURRENT_DATE)'))->index();
             $table->unique(['id']);

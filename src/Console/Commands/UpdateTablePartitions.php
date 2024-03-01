@@ -1,10 +1,10 @@
 <?php
 
-namespace GuaranteedSoftware\LaravelDatasourceTools\Console\Commands;
+namespace GuaranteedSoftware\Laravel\DatasourceTools\Console\Commands;
 
 use Carbon\Carbon;
-use GuaranteedSoftware\LaravelDatasourceTools\Contracts\Constants;
-use GuaranteedSoftware\LaravelDatasourceTools\Helpers\DbHelper;
+use GuaranteedSoftware\Laravel\DatasourceTools\Contracts\Constants;
+use GuaranteedSoftware\Laravel\DatasourceTools\Helpers\DbHelper;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;

@@ -1,10 +1,10 @@
 <?php
 
-namespace GuaranteedSoftware\LaravelDatasourceTools\Providers;
+namespace GuaranteedSoftware\Laravel\DatasourceTools\Providers;
 
 use Carbon\Carbon;
-use GuaranteedSoftware\LaravelDatasourceTools\Console\Commands\PartitionTableByDateRange;
-use GuaranteedSoftware\LaravelDatasourceTools\Console\Commands\UpdateTablePartitions;
+use GuaranteedSoftware\Laravel\DatasourceTools\Console\Commands\PartitionTableByDateRange;
+use GuaranteedSoftware\Laravel\DatasourceTools\Console\Commands\UpdateTablePartitions;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;

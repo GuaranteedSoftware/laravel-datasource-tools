@@ -1,12 +1,12 @@
 <?php
 
-namespace GuaranteedSoftware\LaravelDatasourceTools\Console\Commands;
+namespace GuaranteedSoftware\Laravel\DatasourceTools\Console\Commands;
 
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
-use GuaranteedSoftware\LaravelDatasourceTools\Contracts\Constants;
-use GuaranteedSoftware\LaravelDatasourceTools\Helpers\DbHelper;
-use GuaranteedSoftware\LaravelDatasourceTools\Providers\DatasourceToolsServiceProvider;
+use GuaranteedSoftware\Laravel\DatasourceTools\Contracts\Constants;
+use GuaranteedSoftware\Laravel\DatasourceTools\Helpers\DbHelper;
+use GuaranteedSoftware\Laravel\DatasourceTools\Providers\DatasourceToolsServiceProvider;
 use Illuminate\Console\Command;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
