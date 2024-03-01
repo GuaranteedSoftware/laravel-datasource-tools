@@ -1,0 +1,28 @@
+{
+    "name": "guaranteed.software/laravel-datasource-tools",
+    "description": "Tools for extending datasource functionality in Laravel",
+    "type": "library",
+    "require": {
+        "php": "^8.1",
+        "laravel/framework": "^9.0|^10.0"
+    },
+    "license": "proprietary",
+    "autoload": {
+        "psr-4": {
+            "GuaranteedSoftware\\Laravel\\DatasourceTools\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "GuaranteedSoftware\\Laravel\\DatasourceTools\\Providers\\DatasourceToolsServiceProvider"
+            ]
+        }
+    },
+    "authors": [
+        {
+            "name": "Guaranteed Software",
+            "email": "developers@guaranteed.software"
+        }
+    ]
+}
