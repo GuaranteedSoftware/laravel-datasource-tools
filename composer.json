@@ -9,13 +9,13 @@
     "license": "proprietary",
     "autoload": {
         "psr-4": {
-            "GuaranteedSoftware\\LaravelDatasourceTools\\": "src/"
+            "GuaranteedSoftware\\Laravel\\DatasourceTools\\": "src/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "GuaranteedSoftware\\LaravelDatasourceTools\\Providers\\DatasourceToolsServiceProvider"
+                "GuaranteedSoftware\\Laravel\\DatasourceTools\\Providers\\DatasourceToolsServiceProvider"
             ]
         }
     },
